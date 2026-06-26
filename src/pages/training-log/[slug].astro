@@ -1,0 +1,59 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection('posts');
+  posts.sort((a, b) => a.data.date.getTime() - b.data.date.getTime());
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    props: {
+      post,
+      prev: i > 0 ? posts[i - 1] : null,
+      next: i < posts.length - 1 ? posts[i + 1] : null,
+    },
+  }));
+}) satisfies GetStaticPaths;
+
+const { post, prev, next } = Astro.props;
+const { Content } = await render(post);
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+---
+<Base title={post.data.title}>
+  <article>
+    <header style="margin-bottom:2rem;">
+      <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.5rem;">
+        <a href="/training" style="color:var(--text-muted);">Training Log</a> · {fmtDate(post.data.date)}
+      </p>
+      <h1 style="font-size:2rem;">{post.data.title}</h1>
+      {post.data.tags && post.data.tags.length > 0 && (
+        <div style="display:flex; gap:0.4rem; margin-top:0.75rem;">
+          {post.data.tags.map(t => <span class="tag">{t}</span>)}
+        </div>
+      )}
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <nav style="display:flex; justify-content:space-between; align-items:center; margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--border); gap:1rem;">
+      {prev ? (
+        <a href={`/training-log/${prev.id}`} style="display:flex; flex-direction:column; gap:0.2rem; text-decoration:none; max-width:45%;">
+          <span style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">← Previous</span>
+          <span style="font-size:0.875rem; color:var(--text);">{prev.data.title}</span>
+        </a>
+      ) : <span />}
+      {next ? (
+        <a href={`/training-log/${next.id}`} style="display:flex; flex-direction:column; align-items:flex-end; gap:0.2rem; text-decoration:none; max-width:45%;">
+          <span style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">Next →</span>
+          <span style="font-size:0.875rem; color:var(--text);">{next.data.title}</span>
+        </a>
+      ) : <span />}
+    </nav>
+  </article>
+</Base>

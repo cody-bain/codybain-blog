@@ -1,0 +1,69 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+
+export const getStaticPaths = (async () => {
+  const books = await getCollection('books');
+  books.sort((a, b) => a.data.date.getTime() - b.data.date.getTime());
+  return books.map((book, i) => ({
+    params: { slug: book.id },
+    props: {
+      book,
+      prev: i > 0 ? books[i - 1] : null,
+      next: i < books.length - 1 ? books[i + 1] : null,
+    },
+  }));
+}) satisfies GetStaticPaths;
+
+const { book, prev, next } = Astro.props;
+const { Content } = await render(book);
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+function stars(rating: number) {
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+}
+---
+<Base title={book.data.title}>
+  <article>
+    <header style="margin-bottom:2rem;">
+      <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.5rem;">
+        <a href="/books" style="color:var(--text-muted);">Books</a> · {fmtDate(book.data.date)}
+      </p>
+      <h1 style="font-size:2rem; margin-bottom:0.35rem;">{book.data.title}</h1>
+      <p style="color:var(--text-muted); font-size:1rem; margin-bottom:0.5rem;">{book.data.author}</p>
+      {book.data.rating && (
+        <span style="color:var(--accent); font-size:0.9rem; letter-spacing:0.05em;">{stars(book.data.rating)}</span>
+      )}
+      {book.data.tags && book.data.tags.length > 0 && (
+        <div style="display:flex; gap:0.4rem; margin-top:0.75rem;">
+          {book.data.tags.map(t => <span class="tag">{t}</span>)}
+        </div>
+      )}
+    </header>
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    <nav style="display:flex; justify-content:space-between; align-items:center; margin-top:3rem; padding-top:1.5rem; border-top:1px solid var(--border); gap:1rem;">
+      {prev ? (
+        <a href={`/books/${prev.id}`} style="display:flex; flex-direction:column; gap:0.2rem; text-decoration:none; max-width:45%;">
+          <span style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">← Previous</span>
+          <span style="font-size:0.875rem; color:var(--text);">{prev.data.title}</span>
+        </a>
+      ) : <span />}
+      {next ? (
+        <a href={`/books/${next.id}`} style="display:flex; flex-direction:column; align-items:flex-end; gap:0.2rem; text-decoration:none; max-width:45%;">
+          <span style="font-size:0.68rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em;">Next →</span>
+          <span style="font-size:0.875rem; color:var(--text);">{next.data.title}</span>
+        </a>
+      ) : <span />}
+    </nav>
+  </article>
+</Base>

@@ -1,0 +1,82 @@
+# Personal Records (1RMs)
+# Used to calculate % 1RM intensity for strength sessions.
+# Add a new entry each time you set a new PR — don't overwrite old ones.
+# The system finds the most recent PR dated on or before each session.
+#
+# Fields:
+#   lift:   One of the 12 tracked lifts (must match exactly)
+#   weight: Numeric weight
+#   unit:   lbs or kg
+#   date:   YYYY-MM-DD
+#
+#
+# Example:
+# - lift: Snatch
+#   weight: 225
+#   unit: lbs
+#   date: 2026-01-15
+
+- lift: Snatch
+  weight: 275
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Clean & Jerk
+  weight: 365
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Clean
+  weight: 365
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Jerk
+  weight: 365
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Power Snatch
+  weight: 250
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Power Clean
+  weight: 330
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Back Squat
+  weight: 440
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Front Squat
+  weight: 410
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Overhead Squat
+  weight: 330
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Snatch Balance
+  weight: 300
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Push Press
+  weight: 275
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Strict Press
+  weight: 190
+  unit: lbs
+  date: "2025-07-17"
+
+- lift: Bench Press
+  weight: 285
+  unit: lbs
+  date: "2025-07-17"

@@ -1,0 +1,36 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('posts');
+posts.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// Group by year
+const byYear = new Map<number, typeof posts>();
+for (const post of posts) {
+  const y = post.data.date.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(post);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+---
+<Base title="Training Log">
+  <h1 style="font-size:2rem; margin-bottom:2rem;">Training Log</h1>
+  {years.map(year => (
+    <section style="margin-bottom:2.5rem;">
+      <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:1rem;">{year}</h2>
+      <ul style="list-style:none; display:flex; flex-direction:column; gap:0.6rem;">
+        {byYear.get(year)!.map(post => (
+          <li style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; border-bottom:1px solid var(--border); padding-bottom:0.6rem;">
+            <a href={`/training-log/${post.id}`} style="color:var(--text);">{post.data.title}</a>
+            <span style="color:var(--text-muted); font-size:0.85rem; white-space:nowrap;">{fmtDate(post.data.date)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

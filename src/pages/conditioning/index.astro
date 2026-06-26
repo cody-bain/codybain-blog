@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import WorkoutSearch from '../../components/WorkoutSearch';
+import DistanceTracker from '../../components/DistanceTracker';
+import { buildWorkoutsDb, aggregateDistances } from '../../utils/parseMetcons';
+
+const workouts = await buildWorkoutsDb();
+const distanceStats = aggregateDistances(workouts);
+---
+<Base title="Conditioning" description="Conditioning log — search by movement, equipment, or type.">
+  <h1 style="font-size:2rem; margin-bottom:0.5rem;">Conditioning Log</h1>
+  <p style="color:var(--text-muted); margin-bottom:2rem;">
+    {workouts.length} sessions logged. Filter by movement, equipment, or type.
+  </p>
+  <DistanceTracker stats={distanceStats} client:load />
+  <WorkoutSearch workouts={workouts} client:load />
+</Base>

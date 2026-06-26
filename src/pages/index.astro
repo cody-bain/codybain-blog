@@ -1,0 +1,130 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { buildWorkoutsDb } from '../utils/parseMetcons';
+import { buildStrengthDb } from '../utils/parseStrength';
+import TrainingCalendar from '../components/TrainingCalendar';
+
+const posts = await getCollection('posts');
+posts.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const recentPosts = posts.slice(0, 5);
+
+const workouts = await buildWorkoutsDb();
+const strengthDb = await buildStrengthDb();
+const totalStrengthSessions = strengthDb.reduce((sum, l) => sum + l.sessions.length, 0);
+
+const books = await getCollection('books');
+
+const articles = await getCollection('articles');
+articles.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const recentArticles = articles.slice(0, 3);
+
+// Build date → slug map for the calendar
+const allPostsSorted = [...posts].sort((a, b) => a.data.date.getTime() - b.data.date.getTime());
+const trainingDates = Object.fromEntries(
+  allPostsSorted.map(p => [p.data.date.toISOString().split('T')[0], p.id])
+);
+const minTrainingDate = allPostsSorted[0]?.data.date.toISOString().split('T')[0] ?? new Date().toISOString().split('T')[0];
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  });
+}
+---
+<Base title="Home">
+
+  <!-- Hero -->
+  <div style="margin-bottom:2rem;">
+    <h1 style="font-size:2.25rem; font-weight:600; margin-bottom:0.5rem;">Cody Bain</h1>
+    <p style="color:var(--text-muted); font-size:1.05rem;">Training log, conditioning log, and writing.</p>
+  </div>
+
+  <!-- Training calendar -->
+  <div style="margin-bottom:3rem;">
+    <TrainingCalendar trainingDates={trainingDates} minDate={minTrainingDate} client:load />
+  </div>
+
+  <!-- Two-column layout: Training Log + Articles -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:3rem; margin-bottom:3.5rem;">
+
+    <!-- Recent Training Log -->
+    <section>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1rem;">
+        <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted);">Training Log</h2>
+        <a href="/training-log" style="font-size:0.8rem; color:var(--text-muted);">All entries →</a>
+      </div>
+      <ul style="list-style:none; display:flex; flex-direction:column;">
+        {recentPosts.map(post => (
+          <li style="display:flex; flex-direction:column; gap:0.15rem; padding:0.65rem 0; border-bottom:1px solid var(--border);">
+            <a href={`/training-log/${post.id}`} style="color:var(--text); font-weight:500; font-size:0.95rem; line-height:1.4;">{post.data.title}</a>
+            <span style="color:var(--text-muted); font-size:0.8rem;">{fmtDate(post.data.date)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- Recent Articles -->
+    <section>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:1rem;">
+        <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted);">Articles</h2>
+        <a href="/articles" style="font-size:0.8rem; color:var(--text-muted);">All articles →</a>
+      </div>
+
+      {recentArticles.length === 0 ? (
+        <p style="color:var(--text-muted); font-size:0.9rem;">No articles yet.</p>
+      ) : (
+        <ul style="list-style:none; display:flex; flex-direction:column;">
+          {recentArticles.map(article => (
+            <li style="padding:0.65rem 0; border-bottom:1px solid var(--border);">
+              <a href={`/articles/${article.id}`} style="display:block; text-decoration:none;">
+                <div style="color:var(--accent); font-weight:500; font-size:0.95rem; margin-bottom:0.15rem;">{article.data.title}</div>
+                {article.data.description && (
+                  <div style="color:var(--text-muted); font-size:0.82rem; line-height:1.4; margin-bottom:0.2rem;">{article.data.description}</div>
+                )}
+                <span style="color:var(--text-muted); font-size:0.8rem;">{fmtDate(article.data.date)}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+  </div>
+
+  <!-- Callout cards -->
+  <div style="display:flex; flex-direction:column; gap:1rem;">
+    <section style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <h2 style="font-size:1rem; font-weight:600; margin-bottom:0.25rem;">Conditioning Log</h2>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">Search {workouts.length} logged sessions by movement, equipment, or type.</p>
+      </div>
+      <a href="/conditioning" style="display:inline-block; background:var(--accent); color:#000; font-weight:600; padding:0.6rem 1.25rem; border-radius:4px; font-size:0.9rem; white-space:nowrap; flex-shrink:0;">Browse Conditioning →</a>
+    </section>
+
+    <section style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <h2 style="font-size:1rem; font-weight:600; margin-bottom:0.25rem;">Strength Log</h2>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">Track {totalStrengthSessions} sessions across {strengthDb.length} lifts.</p>
+      </div>
+      <a href="/strength" style="display:inline-block; background:var(--accent); color:#000; font-weight:600; padding:0.6rem 1.25rem; border-radius:4px; font-size:0.9rem; white-space:nowrap; flex-shrink:0;">Browse Strength →</a>
+    </section>
+
+    <section style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.5rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <h2 style="font-size:1rem; font-weight:600; margin-bottom:0.25rem;">Books</h2>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">{books.length} book{books.length !== 1 ? 's' : ''} read.</p>
+      </div>
+      <a href="/books" style="display:inline-block; background:var(--accent); color:#000; font-weight:600; padding:0.6rem 1.25rem; border-radius:4px; font-size:0.9rem; white-space:nowrap; flex-shrink:0;">Browse Books →</a>
+    </section>
+  </div>
+
+</Base>
+
+<style>
+  @media (max-width: 600px) {
+    div[style*="grid-template-columns"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>

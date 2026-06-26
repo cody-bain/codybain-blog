@@ -1,0 +1,28 @@
+{
+  "name": "codybain-blog",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@astrojs/react": "^5.0.3",
+    "astro": "^6.1.8",
+    "fuse.js": "^7.3.0",
+    "js-yaml": "^4.1.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "recharts": "^3.8.1",
+    "remark-breaks": "^4.0.0",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
+  }
+}

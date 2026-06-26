@@ -1,0 +1,100 @@
+---
+import Base from '../../layouts/Base.astro';
+import { buildWorkoutsDb } from '../../utils/parseMetcons';
+import type { GetStaticPaths } from 'astro';
+
+export const getStaticPaths = (async () => {
+  const workouts = await buildWorkoutsDb();
+  return workouts.map(w => ({ params: { slug: w.slug }, props: { workout: w } }));
+}) satisfies GetStaticPaths;
+
+const { workout } = Astro.props;
+
+function fmtDate(d: string) {
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+---
+<Base title={workout.name}>
+  <div style="margin-bottom:0.5rem;">
+    <a href="/training#conditioning" style="font-size:0.85rem; color:var(--text-muted);">← Conditioning</a>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap;">
+    <h1 style="font-size:2rem;">{workout.name}</h1>
+    {workout.type && <span class="tag">{workout.type}</span>}
+  </div>
+
+  {workout.description && (
+    <pre style="font-family:var(--font-mono); font-size:1rem; line-height:1.7; color:var(--text); background:var(--surface); border-left:3px solid var(--accent); padding:1rem 1.25rem; border-radius:0 4px 4px 0; margin-bottom:1.75rem; white-space:pre-wrap; word-break:break-word;">{workout.description}</pre>
+  )}
+
+  {workout.movements.length > 0 && (
+    <section style="margin-bottom:1.5rem;">
+      <h2 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:0.75rem;">Movements</h2>
+      <ul style="list-style:none; display:flex; flex-wrap:wrap; gap:0.4rem;">
+        {workout.movements.map(m => (
+          <li>
+            <a href={`/conditioning?m=${encodeURIComponent(m)}`} class="tag" style="color:var(--text);">{m}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {workout.equipment.length > 0 && (
+    <section style="margin-bottom:2rem;">
+      <h2 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:0.75rem;">Equipment</h2>
+      <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+        {workout.equipment.map(e => <span class="tag">{e}</span>)}
+      </div>
+    </section>
+  )}
+
+  {(() => {
+    const showDistance = workout.performances.some(p => p.distance != null);
+    const reversed = [...workout.performances].reverse();
+    return (
+      <section>
+        <h2 style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); margin-bottom:0.75rem;">
+          History · {workout.performances.length} attempt{workout.performances.length !== 1 ? 's' : ''}
+        </h2>
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left; padding:0.5rem 0; font-size:0.8rem; color:var(--text-muted); font-weight:500;">Date</th>
+              <th style="text-align:left; padding:0.5rem 0; font-size:0.8rem; color:var(--text-muted); font-weight:500;">Score</th>
+              {showDistance && <th style="text-align:left; padding:0.5rem 0; font-size:0.8rem; color:var(--text-muted); font-weight:500;">Distance</th>}
+              <th style="text-align:left; padding:0.5rem 0; font-size:0.8rem; color:var(--text-muted); font-weight:500;">Entry</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reversed.map(p => {
+              const scores = p.score == null ? [] : Array.isArray(p.score) ? p.score : [p.score];
+              return (
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:0.65rem 0; font-size:0.9rem;">{fmtDate(p.date)}</td>
+                  <td style="padding:0.65rem 0; font-family:var(--font-mono); font-size:0.9rem; color:var(--accent);">
+                    {scores.length > 0
+                      ? <div style="display:flex; flex-direction:column; gap:0.2rem;">{scores.map(s => <span>{s}</span>)}</div>
+                      : <span style="color:var(--text-muted);">—</span>
+                    }
+                  </td>
+                  {showDistance && (
+                    <td style="padding:0.65rem 0; font-family:var(--font-mono); font-size:0.9rem; color:var(--text-muted);">
+                      {p.distance != null ? `${(p.distance / 1000).toFixed(2)} km` : '—'}
+                    </td>
+                  )}
+                  <td style="padding:0.65rem 0;">
+                    <a href={`/training-log/${p.postSlug}`} style="font-size:0.85rem;">entry →</a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+    );
+  })()}
+</Base>

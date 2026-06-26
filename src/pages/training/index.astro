@@ -1,0 +1,228 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import { buildWorkoutsDb, aggregateDistances } from '../../utils/parseMetcons';
+import { buildStrengthDb, liftToSlug } from '../../utils/parseStrength';
+import WorkoutSearch from '../../components/WorkoutSearch';
+import DistanceTracker from '../../components/DistanceTracker';
+import FrequencyTracker from '../../components/FrequencyTracker';
+import type { WeekRow } from '../../components/FrequencyTracker';
+
+// ── Training Log ─────────────────────────────────────────────────────────────
+const posts = await getCollection('posts');
+posts.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+const byYear = new Map<number, typeof posts>();
+for (const post of posts) {
+  const y = post.data.date.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(post);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+const currentYear = new Date().getFullYear();
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+  });
+}
+
+// ── Conditioning ──────────────────────────────────────────────────────────────
+const workouts = await buildWorkoutsDb();
+const distanceStats = aggregateDistances(workouts);
+
+// ── Strength ──────────────────────────────────────────────────────────────────
+const strengthDb = await buildStrengthDb();
+const allLifts = strengthDb.slice().sort((a, b) => a.lift.localeCompare(b.lift));
+
+function bestTop(sessions: { topSet: number; unit: 'lbs' | 'kg' }[]): string {
+  if (!sessions.length) return '—';
+  const lbs = sessions.filter(s => s.unit === 'lbs');
+  const kg  = sessions.filter(s => s.unit === 'kg');
+  const bLbs = lbs.length ? Math.max(...lbs.map(s => s.topSet)) : null;
+  const bKg  = kg.length  ? Math.max(...kg.map(s => s.topSet))  : null;
+  if (bLbs && bKg) return `${bLbs} lbs / ${bKg} kg`;
+  if (bLbs) return `${bLbs} lbs`;
+  if (bKg)  return `${bKg} kg`;
+  return '—';
+}
+function latestDate(sessions: { date: string }[]): string {
+  return sessions.length ? [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0].date : '';
+}
+
+const FREQUENCY_COLUMNS: { label: string; lifts: string[] }[] = [
+  { label: 'Back Squat',    lifts: ['Back Squat'] },
+  { label: 'Bench Press',   lifts: ['Bench Press'] },
+  { label: 'Clean',         lifts: ['Clean', 'Clean & Jerk', 'Power Clean', 'Power Clean & Jerk'] },
+  { label: 'Front Squat',   lifts: ['Front Squat'] },
+  { label: 'Heavy Pull',    lifts: ['Clean Pull', 'Deadlift', 'Snatch Pull'] },
+  { label: 'Jerk',          lifts: ['Jerk', 'Clean & Jerk', 'Power Clean & Jerk'] },
+  { label: 'OHS',           lifts: ['Overhead Squat'] },
+  { label: 'Push Press',    lifts: ['Push Press'] },
+  { label: 'Snatch',        lifts: ['Snatch', 'Power Snatch'] },
+  { label: 'Snatch Balance',lifts: ['Snatch Balance'] },
+  { label: 'Strict Press',  lifts: ['Strict Press'] },
+];
+const columnLabels = FREQUENCY_COLUMNS.map(c => c.label);
+
+function weekStart(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().split('T')[0];
+}
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+function weekLabel(ws: string): string {
+  const d = new Date(ws + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const weekLiftMap = new Map<string, Set<string>>();
+for (const liftData of strengthDb) {
+  for (const session of liftData.sessions) {
+    const ws = weekStart(session.date);
+    if (!weekLiftMap.has(ws)) weekLiftMap.set(ws, new Set());
+    weekLiftMap.get(ws)!.add(liftData.lift);
+  }
+}
+const today = new Date().toISOString().split('T')[0];
+const currentWeek = weekStart(today);
+const allWeekKeys = [...weekLiftMap.keys()].sort();
+const firstWeek = allWeekKeys[0] ?? currentWeek;
+const frequencyWeeks: WeekRow[] = [];
+let w = currentWeek;
+while (w >= firstWeek) {
+  const liftsThisWeek = weekLiftMap.get(w);
+  frequencyWeeks.push({
+    weekStart: w,
+    label: weekLabel(w),
+    hits: Object.fromEntries(
+      FREQUENCY_COLUMNS.map(col => [
+        col.label,
+        col.lifts.some(l => liftsThisWeek?.has(l) ?? false),
+      ])
+    ),
+  });
+  w = addDays(w, -7);
+}
+---
+<Base title="Training Log">
+  <div style="margin-bottom:2rem;">
+    <h1 style="font-size:2rem; font-weight:600; margin-bottom:0.35rem;">Training Log</h1>
+    <p style="color:var(--text-muted); font-size:0.95rem;">Log, conditioning, and strength.</p>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="tab-bar" style="display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:2rem;">
+    <button class="tab-btn" data-tab="log"          style="padding:0.6rem 1.25rem; background:none; border:none; border-bottom:2px solid transparent; font-size:0.85rem; font-family:inherit; cursor:pointer; color:var(--text-muted); transition:all 0.15s; margin-bottom:-1px;">Log</button>
+    <button class="tab-btn" data-tab="conditioning" style="padding:0.6rem 1.25rem; background:none; border:none; border-bottom:2px solid transparent; font-size:0.85rem; font-family:inherit; cursor:pointer; color:var(--text-muted); transition:all 0.15s; margin-bottom:-1px;">Conditioning</button>
+    <button class="tab-btn" data-tab="strength"     style="padding:0.6rem 1.25rem; background:none; border:none; border-bottom:2px solid transparent; font-size:0.85rem; font-family:inherit; cursor:pointer; color:var(--text-muted); transition:all 0.15s; margin-bottom:-1px;">Strength</button>
+  </div>
+
+  <!-- ── Log tab ─────────────────────────────────────────────────────────── -->
+  <div id="tab-log" class="tab-panel">
+    {posts.length === 0 ? (
+      <p style="color:var(--text-muted);">No entries yet.</p>
+    ) : years.map(year => (
+      <details open={year === currentYear} style="margin-bottom:1.5rem;">
+        <summary style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); cursor:pointer; list-style:none; display:flex; align-items:center; gap:0.5rem; user-select:none; margin-bottom:0.75rem;">
+          <span class="details-arrow">▶</span>
+          {year}
+          <span style="color:#444; font-size:0.7rem;">({byYear.get(year)!.length})</span>
+        </summary>
+        <ul style="list-style:none; display:flex; flex-direction:column;">
+          {byYear.get(year)!.map(post => (
+            <li style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; border-bottom:1px solid var(--border); padding:0.55rem 0;">
+              <a href={`/training-log/${post.id}`} style="color:var(--text); font-size:0.9rem;">{post.data.title}</a>
+              <span style="color:var(--text-muted); font-size:0.8rem; white-space:nowrap; flex-shrink:0;">{fmtDate(post.data.date)}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ))}
+  </div>
+
+  <!-- ── Conditioning tab ───────────────────────────────────────────────── -->
+  <div id="tab-conditioning" class="tab-panel" style="display:none;">
+    <p style="color:var(--text-muted); margin-bottom:2rem; font-size:0.95rem;">
+      {workouts.length} sessions logged. Filter by movement, equipment, or type.
+    </p>
+    <DistanceTracker stats={distanceStats} client:load />
+    <WorkoutSearch workouts={workouts} client:load />
+  </div>
+
+  <!-- ── Strength tab ───────────────────────────────────────────────────── -->
+  <div id="tab-strength" class="tab-panel" style="display:none;">
+    <FrequencyTracker client:load weeks={frequencyWeeks} columns={columnLabels} />
+
+    <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:1rem;">Lifts</h2>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:1rem;">
+      {allLifts.map(data => (
+        <a href={`/strength/${data.slug}`} style="text-decoration:none;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:1rem 1.25rem; transition:border-color 0.15s;" class="lift-card">
+            <div style="font-weight:600; font-size:0.9rem; color:var(--accent); margin-bottom:0.4rem;">{data.lift}</div>
+            <div style="display:flex; flex-direction:column; gap:0.15rem;">
+              <div style="font-size:0.78rem; color:var(--text-muted);">
+                <span style="color:var(--text);">{data.sessions.length}</span> session{data.sessions.length !== 1 ? 's' : ''}
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Best: <span style="color:var(--text); font-family:var(--font-mono);">{bestTop(data.sessions)}</span></div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Last: <span style="color:var(--text);">{latestDate(data.sessions)}</span></div>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</Base>
+
+<style>
+  .lift-card:hover { border-color: var(--accent) !important; }
+
+  details[open] .details-arrow { transform: rotate(90deg); }
+  .details-arrow { display:inline-block; transition: transform 0.15s; font-size:0.6rem; }
+
+  .tab-btn.active {
+    color: var(--text) !important;
+    border-bottom-color: var(--accent) !important;
+  }
+  .tab-btn:hover { color: var(--text) !important; }
+</style>
+
+<script>
+  const TABS = ['log', 'conditioning', 'strength'] as const;
+  type Tab = typeof TABS[number];
+
+  function setTab(name: Tab) {
+    TABS.forEach(t => {
+      const panel = document.getElementById('tab-' + t);
+      const btn = document.querySelector<HTMLElement>(`[data-tab="${t}"]`);
+      if (panel) panel.style.display = t === name ? '' : 'none';
+      if (btn) btn.classList.toggle('active', t === name);
+    });
+    // Let Recharts / ResizableContainer re-measure after tab reveals
+    window.dispatchEvent(new Event('resize'));
+    const hash = '#' + name;
+    if (location.hash !== hash) history.replaceState(null, '', hash);
+  }
+
+  function init() {
+    const hash = location.hash.replace('#', '') as Tab;
+    const initial: Tab = TABS.includes(hash) ? hash : 'log';
+    setTab(initial);
+
+    document.querySelectorAll<HTMLElement>('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => setTab(btn.dataset.tab as Tab));
+    });
+  }
+
+  // Run after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+</script>

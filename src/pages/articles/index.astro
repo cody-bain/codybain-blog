@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const articles = await getCollection('articles');
+articles.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+---
+<Base title="Articles">
+  <h1 style="font-size:2rem; margin-bottom:2rem;">Articles</h1>
+
+  {articles.length === 0 && (
+    <p style="color:var(--text-muted);">No articles yet.</p>
+  )}
+
+  <ul style="list-style:none; display:flex; flex-direction:column; gap:2rem;">
+    {articles.map(article => (
+      <li>
+        <a href={`/articles/${article.id}`} style="display:block; text-decoration:none; color:var(--text);">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:0.35rem;">
+            <span style="font-weight:600; font-size:1.1rem; color:var(--accent);">{article.data.title}</span>
+            <span style="color:var(--text-muted); font-size:0.85rem; white-space:nowrap; flex-shrink:0;">{fmtDate(article.data.date)}</span>
+          </div>
+          {article.data.description && (
+            <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">{article.data.description}</p>
+          )}
+          {article.data.tags && article.data.tags.length > 0 && (
+            <div style="display:flex; gap:0.4rem; margin-top:0.5rem;">
+              {article.data.tags.map(t => <span class="tag">{t}</span>)}
+            </div>
+          )}
+        </a>
+        <div style="border-bottom:1px solid var(--border); margin-top:1.25rem;"></div>
+      </li>
+    ))}
+  </ul>
+</Base>

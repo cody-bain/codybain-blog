@@ -1,0 +1,139 @@
+---
+import Base from '../../layouts/Base.astro';
+import { buildStrengthDb, liftToSlug } from '../../utils/parseStrength';
+import FrequencyTracker from '../../components/FrequencyTracker.tsx';
+import type { WeekRow } from '../../components/FrequencyTracker.tsx';
+
+const db = await buildStrengthDb();
+
+// ── Lift grid ────────────────────────────────────────────────────────────────
+const allLifts = db.slice().sort((a, b) => a.lift.localeCompare(b.lift));
+
+function latestDate(sessions: { date: string }[]): string {
+  return sessions.length ? [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0].date : '';
+}
+function bestTop(sessions: { topSet: number; unit: 'lbs' | 'kg' }[]): string {
+  if (!sessions.length) return '—';
+  const lbs = sessions.filter(s => s.unit === 'lbs');
+  const kg  = sessions.filter(s => s.unit === 'kg');
+  const bLbs = lbs.length ? Math.max(...lbs.map(s => s.topSet)) : null;
+  const bKg  = kg.length  ? Math.max(...kg.map(s => s.topSet))  : null;
+  if (bLbs && bKg) return `${bLbs} lbs / ${bKg} kg`;
+  if (bLbs) return `${bLbs} lbs`;
+  if (bKg)  return `${bKg} kg`;
+  return '—';
+}
+
+// ── Frequency tracker ────────────────────────────────────────────────────────
+const FREQUENCY_COLUMNS: { label: string; lifts: string[] }[] = [
+  { label: 'Back Squat',    lifts: ['Back Squat'] },
+  { label: 'Bench Press',   lifts: ['Bench Press'] },
+  { label: 'Clean',         lifts: ['Clean', 'Clean & Jerk', 'Power Clean', 'Power Clean & Jerk'] },
+  { label: 'Front Squat',   lifts: ['Front Squat'] },
+  { label: 'Heavy Pull',    lifts: ['Clean Pull', 'Deadlift', 'Snatch Pull'] },
+  { label: 'Jerk',          lifts: ['Jerk', 'Clean & Jerk', 'Power Clean & Jerk'] },
+  { label: 'OHS',           lifts: ['Overhead Squat'] },
+  { label: 'Push Press',    lifts: ['Push Press'] },
+  { label: 'Snatch',        lifts: ['Snatch', 'Power Snatch'] },
+  { label: 'Snatch Balance',lifts: ['Snatch Balance'] },
+  { label: 'Strict Press',  lifts: ['Strict Press'] },
+];
+const columnLabels = FREQUENCY_COLUMNS.map(c => c.label);
+
+// Monday of the ISO week containing a YYYY-MM-DD date
+function weekStart(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().split('T')[0];
+}
+function addDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+function weekLabel(ws: string): string {
+  const d = new Date(ws + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Build week → set of lift names
+const weekLiftMap = new Map<string, Set<string>>();
+for (const liftData of db) {
+  for (const session of liftData.sessions) {
+    const ws = weekStart(session.date);
+    if (!weekLiftMap.has(ws)) weekLiftMap.set(ws, new Set());
+    weekLiftMap.get(ws)!.add(liftData.lift);
+  }
+}
+
+// All weeks from first data to current week, newest first
+const today = new Date().toISOString().split('T')[0];
+const currentWeek = weekStart(today);
+const allWeekKeys = [...weekLiftMap.keys()].sort();
+const firstWeek = allWeekKeys[0] ?? currentWeek;
+
+const frequencyWeeks: WeekRow[] = [];
+let w = currentWeek;
+while (w >= firstWeek) {
+  const liftsThisWeek = weekLiftMap.get(w);
+  frequencyWeeks.push({
+    weekStart: w,
+    label: weekLabel(w),
+    hits: Object.fromEntries(
+      FREQUENCY_COLUMNS.map(col => [
+        col.label,
+        col.lifts.some(l => liftsThisWeek?.has(l) ?? false),
+      ])
+    ),
+  });
+  w = addDays(w, -7);
+}
+---
+<Base title="Strength">
+
+  <div style="margin-bottom:2.5rem;">
+    <h1 style="font-size:2rem; font-weight:600; margin-bottom:0.35rem;">Strength</h1>
+    <p style="color:var(--text-muted); font-size:0.95rem;">Olympic weightlifting and strength training log.</p>
+  </div>
+
+  {db.length === 0 ? (
+    <div style="color:var(--text-muted); font-size:0.95rem; padding:2rem 0;">
+      <p>No strength sessions logged yet.</p>
+      <p style="margin-top:0.75rem; font-size:0.85rem;">Add a <code>strength</code> block to any training log entry to start tracking.</p>
+    </div>
+  ) : (
+    <>
+      <!-- Frequency tracker -->
+      <FrequencyTracker client:load weeks={frequencyWeeks} columns={columnLabels} />
+
+      <!-- Lift grid -->
+      <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:1rem;">Lifts</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1rem;">
+        {allLifts.map(data => (
+          <a href={`/strength/${data.slug}`} style="text-decoration:none;">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:1rem 1.25rem; transition:border-color 0.15s;" class="lift-card">
+              <div style="font-weight:600; font-size:0.95rem; color:var(--accent); margin-bottom:0.5rem;">{data.lift}</div>
+              <div style="display:flex; flex-direction:column; gap:0.2rem;">
+                <div style="font-size:0.8rem; color:var(--text-muted);">
+                  <span style="color:var(--text);">{data.sessions.length}</span> session{data.sessions.length !== 1 ? 's' : ''}
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">
+                  Best: <span style="color:var(--text); font-family:var(--font-mono);">{bestTop(data.sessions)}</span>
+                </div>
+                <div style="font-size:0.8rem; color:var(--text-muted);">Last: <span style="color:var(--text);">{latestDate(data.sessions)}</span></div>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </>
+  )}
+
+</Base>
+
+<style>
+  .lift-card:hover {
+    border-color: var(--accent) !important;
+  }
+</style>

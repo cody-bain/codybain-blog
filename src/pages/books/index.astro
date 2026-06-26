@@ -1,0 +1,66 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const books = await getCollection('books');
+books.sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+function fmtDate(d: Date) {
+  return new Date(d.toISOString().slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+}
+
+function stars(rating: number | undefined) {
+  if (!rating) return '';
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+}
+
+// Group by year
+const byYear = new Map<number, typeof books>();
+for (const book of books) {
+  const y = book.data.date.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(book);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+---
+<Base title="Books">
+  <div style="margin-bottom:2rem;">
+    <h1 style="font-size:2rem; font-weight:600; margin-bottom:0.35rem;">Books</h1>
+    <p style="color:var(--text-muted); font-size:0.95rem;">{books.length} book{books.length !== 1 ? 's' : ''} read.</p>
+  </div>
+
+  {books.length === 0 && (
+    <p style="color:var(--text-muted);">No books logged yet.</p>
+  )}
+
+  {years.map(year => (
+    <section style="margin-bottom:2.5rem;">
+      <h2 style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:1rem;">{year}</h2>
+      <ul style="list-style:none; display:flex; flex-direction:column;">
+        {byYear.get(year)!.map(book => (
+          <li style="padding:0.9rem 0; border-bottom:1px solid var(--border);">
+            <a href={`/books/${book.id}`} style="display:block; text-decoration:none;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:1rem; margin-bottom:0.2rem;">
+                <span style="font-weight:600; font-size:0.95rem; color:var(--text);">{book.data.title}</span>
+                <span style="color:var(--text-muted); font-size:0.8rem; white-space:nowrap; flex-shrink:0;">{fmtDate(book.data.date)}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:1rem;">
+                <span style="color:var(--text-muted); font-size:0.85rem;">{book.data.author}</span>
+                {book.data.rating && (
+                  <span style="color:var(--accent); font-size:0.8rem; letter-spacing:0.05em;">{stars(book.data.rating)}</span>
+                )}
+              </div>
+              {book.data.tags && book.data.tags.length > 0 && (
+                <div style="display:flex; gap:0.4rem; margin-top:0.4rem;">
+                  {book.data.tags.map(t => <span class="tag">{t}</span>)}
+                </div>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>

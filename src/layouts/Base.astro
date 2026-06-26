@@ -1,0 +1,37 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = 'Training log, conditioning log, and articles by Cody Bain.' } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title} · Cody Bain</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <link rel="stylesheet" href="/styles/global.css" />
+  </head>
+  <body>
+    <header style="border-bottom: 1px solid var(--border); padding: 1rem 0; margin-bottom: 3rem;">
+      <div class="container" style="display:flex; align-items:center; justify-content:space-between;">
+        <a href="/" style="font-weight:600; font-size:1.1rem; color:var(--text);">Cody Bain</a>
+        <nav style="display:flex; gap:1.5rem; font-size:0.9rem;">
+          <a href="/training" class:list={[{ 'nav-active': Astro.url.pathname.startsWith('/training') || Astro.url.pathname.startsWith('/workouts') || Astro.url.pathname.startsWith('/strength') }]}>Training Log</a>
+          <a href="/articles" class:list={[{ 'nav-active': Astro.url.pathname.startsWith('/articles') }]}>Articles</a>
+          <a href="/books" class:list={[{ 'nav-active': Astro.url.pathname.startsWith('/books') }]}>Books</a>
+        </nav>
+      </div>
+    </header>
+    <main class="container">
+      <slot />
+    </main>
+    <footer style="border-top: 1px solid var(--border); margin-top: 4rem; padding: 2rem 0; text-align:center; color:var(--text-muted); font-size:0.85rem;">
+      <div class="container">codybain.com</div>
+    </footer>
+  </body>
+</html>
